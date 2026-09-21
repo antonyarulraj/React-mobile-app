@@ -132,7 +132,13 @@ screens/hooks stay unchanged.
 - Empty/loading/error states (simulated, since data is mocked) so the UI is
   ready for real async API behavior later.
 
-### 5.4 Out of scope for v1
+### 5.4 Mockups
+
+Visual mockups of the screens above are available in
+[`docs/mockups/`](mockups/README.md): Sales Dashboard, Sales List, Sale
+Order Detail, Sale Order Form, and Customers List.
+
+### 5.5 Out of scope for v1
 - Payments/invoicing integration.
 - Tax rule engines (flat/simple tax % only).
 - Multi-warehouse inventory checks.
