@@ -12,8 +12,9 @@ For this phase, the app will run entirely on **mock/static data** — no backend
 or API integration. The data layer will be built behind a simple interface so
 a real API can be swapped in later without reworking the UI.
 
-This document is a planning artifact only. No application code or project
-scaffold is created yet — that comes after this plan is reviewed/approved.
+Phase 1 (project scaffold, navigation shell, theme) is complete — see
+[Milestones](#8-milestones--delivery-plan). Sales module screens are still
+placeholders pending Phase 2+ (mock data and business logic).
 
 ---
 
@@ -42,9 +43,9 @@ scaffold is created yet — that comes after this plan is reviewed/approved.
 
 | Concern              | Choice                                              |
 |----------------------|------------------------------------------------------|
-| Framework            | React Native (via Expo) for fast setup & cross-platform (iOS/Android) |
+| Framework            | React Native (via Expo, SDK 57) for fast setup & cross-platform (iOS/Android/web) |
 | Language             | TypeScript                                          |
-| Navigation           | React Navigation (native-stack + bottom-tabs)       |
+| Navigation           | Expo Router (file-based routing, built on React Navigation) |
 | State management     | React Context + hooks for v1 (upgrade path: Zustand/Redux Toolkit if complexity grows) |
 | UI components        | React Native Paper (Material Design) or NativeBase — pick one for consistent look |
 | Forms                | React Hook Form (+ basic yup/zod validation)        |
@@ -58,33 +59,47 @@ Expo is recommended over bare React Native CLI to keep setup, builds, and
 device testing simple for a small ERP app; can eject later if native modules
 are needed.
 
+**Update (Phase 1):** navigation uses **Expo Router** rather than a
+hand-wired React Navigation tree. It's the current Expo-recommended standard
+(file-based routes under `app/`), gives bottom tabs + stacks with less
+boilerplate, and still sits on top of React Navigation under the hood.
+
 ---
 
 ## 4. High-Level Architecture
 
 ```
-app/
-├── docs/                      # Planning & architecture docs (this file lives here)
-├── src/
-│   ├── navigation/            # Navigators (root, tabs, per-module stacks)
-│   ├── modules/
-│   │   └── sales/             # Sales module (self-contained)
-│   │       ├── screens/       # SalesListScreen, SalesDetailScreen, SalesFormScreen, DashboardScreen
-│   │       ├── components/    # SalesCard, StatusBadge, SalesSummary, etc.
-│   │       ├── data/           # mockSalesData.ts, salesRepository.ts (interface)
-│   │       ├── hooks/          # useSales, useSalesFilters
-│   │       ├── types.ts        # SaleOrder, SaleItem, Customer, SalesStatus
-│   │       └── index.ts
-│   ├── shared/
-│   │   ├── components/        # Buttons, Inputs, EmptyState, LoadingSpinner, Header
-│   │   ├── theme/              # Colors, typography, spacing
-│   │   ├── utils/               # formatCurrency, formatDate, id generators
-│   │   └── constants/
-│   ├── store/                  # App-level context/providers (if needed beyond module-local state)
-│   └── App.tsx
-├── assets/
-├── app.json / package.json / tsconfig.json
+docs/                          # Planning & architecture docs (this file lives here)
+app/                            # Expo Router routes only — file = screen, _layout.tsx = navigator
+├── _layout.tsx                 # Root Stack + theme provider
+├── +not-found.tsx
+└── (tabs)/
+    ├── _layout.tsx              # Bottom tab navigator (Dashboard, Sales, Customers, More)
+    ├── index.tsx                # -> renders src/modules/dashboard
+    ├── sales.tsx                # -> renders src/modules/sales (becomes a folder + stack once
+    │                              #    order detail/create screens are added in Phase 3+)
+    ├── customers.tsx            # -> renders src/modules/customers
+    └── more.tsx                 # -> renders src/modules/more
+src/
+├── modules/
+│   └── sales/                  # Sales module (self-contained)
+│       ├── screens/            # SalesListScreen, SalesDetailScreen, SalesFormScreen
+│       ├── components/         # SalesCard, StatusBadge, SalesSummary, etc.
+│       ├── data/                # mockSalesData.ts, salesRepository.ts (interface)
+│       ├── hooks/                # useSales, useSalesFilters
+│       └── types.ts              # SaleOrder, SaleItem, Customer, SalesStatus
+├── shared/
+│   ├── components/             # Screen, PlaceholderCard, Buttons, Inputs, EmptyState, etc.
+│   ├── theme/                    # colors, spacing, typography, navigationTheme
+│   └── utils/                     # formatCurrency, formatDate, id generators (added as needed)
+assets/
+app.json / package.json / tsconfig.json
 ```
+
+Route files in `app/` are kept thin (`export { default } from '@/modules/.../screens/...'`)
+— all real screen UI and logic lives in `src/modules/`, imported via the `@/*`
+path alias. This keeps the module pattern from the original plan intact while
+satisfying Expo Router's requirement that routable files live under `app/`.
 
 **Module pattern:** every ERP module (Sales, Inventory, Purchases, …) follows
 the same internal shape (`screens/`, `components/`, `data/`, `hooks/`,
@@ -146,24 +161,27 @@ Order Detail, Sale Order Form, and Customers List.
 
 ---
 
-## 6. Navigation Structure (proposed)
+## 6. Navigation Structure
+
+Implemented in Phase 1 as an Expo Router bottom-tab group at `app/(tabs)/`:
 
 ```
-Root
-└── Bottom Tabs
-    ├── Sales (stack)
-    │   ├── Sales Dashboard
-    │   ├── Sales List
-    │   ├── Sale Order Detail
-    │   └── Sale Order Form (create/edit)
-    ├── Customers (stack)
-    │   ├── Customer List
-    │   └── Customer Detail
-    └── More / Settings (placeholder for future modules)
+Root Stack (app/_layout.tsx)
+└── (tabs) — bottom tabs (app/(tabs)/_layout.tsx)
+    ├── Dashboard   (index.tsx)      — placeholder, becomes Sales Dashboard
+    ├── Sales       (sales.tsx)      — placeholder, becomes a stack:
+    │                                   list → order detail → create/edit form
+    ├── Customers   (customers.tsx)  — placeholder, becomes list → detail
+    └── More        (more.tsx)       — placeholder for settings/future modules
 ```
+
+When Sales/Customers grow beyond a single screen (Phase 3+), the leaf route
+file converts into a folder with its own `_layout.tsx` stack (e.g.
+`app/(tabs)/sales/_layout.tsx`, `index.tsx`, `[id].tsx`, `new.tsx`) — a
+standard Expo Router pattern, no restructuring of the tab group itself.
 
 Future modules (Inventory, Purchases, Reports) get added as additional tabs
-or nested inside a "More" menu as the app grows, avoiding tab-bar overcrowding.
+or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding.
 
 ---
 
@@ -183,27 +201,28 @@ or nested inside a "More" menu as the app grows, avoiding tab-bar overcrowding.
 
 ## 8. Milestones / Delivery Plan
 
-| Phase | Deliverable |
-|-------|-------------|
-| 0 | This plan (docs only) — **current phase** |
-| 1 | Project scaffold: Expo + TypeScript + navigation shell + theme, no business logic |
-| 2 | Sales module data layer: types, mock data, mock repository with async simulation |
-| 3 | Sales List + Sale Order Detail screens (read-only, wired to mock data) |
-| 4 | Sale Order Create/Edit form with line items & totals |
-| 5 | Status transitions + basic Sales Dashboard stats |
-| 6 | Lightweight Customers screens to support Sales flow |
-| 7 | Polish: search/filter, empty/loading/error states, basic tests |
-| 8 (future) | Replace mock repository with real API integration |
-| 9 (future) | Additional ERP modules: Inventory, Purchases, Invoicing, Reports |
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| 0 | This plan (docs only) | ✅ Done |
+| 1 | Project scaffold: Expo + TypeScript + navigation shell + theme, no business logic | ✅ Done |
+| 2 | Sales module data layer: types, mock data, mock repository with async simulation | **Current phase** |
+| 3 | Sales List + Sale Order Detail screens (read-only, wired to mock data) | Pending |
+| 4 | Sale Order Create/Edit form with line items & totals | Pending |
+| 5 | Status transitions + basic Sales Dashboard stats | Pending |
+| 6 | Lightweight Customers screens to support Sales flow | Pending |
+| 7 | Polish: search/filter, empty/loading/error states, basic tests | Pending |
+| 8 (future) | Replace mock repository with real API integration | Pending |
+| 9 (future) | Additional ERP modules: Inventory, Purchases, Invoicing, Reports | Pending |
 
 ---
 
 ## 9. Open Questions
 
 - Preferred UI library: React Native Paper vs. NativeBase vs. custom design
-  system?
-- Should the app target Expo managed workflow, or is bare React Native CLI
-  required (e.g. for specific native modules)?
+  system? (Phase 1 uses plain React Native `StyleSheet` + a small hand-rolled
+  theme — no component library pulled in yet.)
+- ~~Should the app target Expo managed workflow, or is bare React Native CLI
+  required?~~ **Resolved:** Expo managed workflow (SDK 57), confirmed in Phase 1.
 - Any branding/design guidelines (colors, logo) to align the theme with?
 - Should currency/locale be configurable, or fixed for now (e.g. USD)?
 
@@ -211,9 +230,20 @@ or nested inside a "More" menu as the app grows, avoiding tab-bar overcrowding.
 
 ## 10. Next Steps
 
-Once this plan is approved:
-1. Scaffold the Expo + TypeScript project (Phase 1).
-2. Implement the Sales module data layer and mock data (Phase 2).
+1. ~~Scaffold the Expo + TypeScript project (Phase 1).~~ ✅ Done.
+2. Implement the Sales module data layer and mock data (Phase 2) — next up.
 3. Build out Sales screens incrementally (Phases 3–6).
 
-No code or project files will be created until this plan is confirmed.
+---
+
+## 11. Running the App
+
+```bash
+npm install
+npx expo start        # then press i / a / w, or scan the QR code in Expo Go
+npx expo start --web  # web preview via react-native-web (fastest way to check UI without a device/simulator)
+npx tsc --noEmit       # typecheck
+```
+
+Phase 1 currently renders four themed placeholder tabs (Dashboard, Sales,
+Customers, More) with no mock data or business logic wired up yet.
