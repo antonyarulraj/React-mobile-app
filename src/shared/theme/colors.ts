@@ -23,5 +23,3 @@ export const colors = {
     cancelled: { background: '#FEE2E2', text: '#991B1B' },
   },
 } as const;
-
-export type SalesStatus = keyof typeof colors.status;

@@ -1,63 +1,58 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { router } from 'expo-router';
+import { FlatList, StyleSheet } from 'react-native';
 
+import { ErrorState } from '@/shared/components/ErrorState';
+import { LoadingState } from '@/shared/components/LoadingState';
 import { PlaceholderCard } from '@/shared/components/PlaceholderCard';
 import { Screen } from '@/shared/components/Screen';
-import { colors } from '@/shared/theme';
+import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { spacing } from '@/shared/theme';
 
-import { mockSalesRepository } from '../data/salesRepository';
+import { SaleOrderListItem } from '../components/SaleOrderListItem';
+import { useSaleOrders } from '../hooks/useSaleOrders';
 
 export default function SalesListScreen() {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [summary, setSummary] = useState('');
+  const { state, reload } = useSaleOrders();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const [orders, customers, products] = await Promise.all([
-          mockSalesRepository.getOrders(),
-          mockSalesRepository.getCustomers(),
-          mockSalesRepository.getProducts(),
-        ]);
-        if (cancelled) return;
-        setSummary(
-          `${orders.length} orders • ${customers.length} customers • ${products.length} products loaded (mock data).`
-        );
-        setStatus('ready');
-      } catch {
-        if (!cancelled) setStatus('error');
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (status === 'loading') {
-    return (
-      <Screen>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      </Screen>
-    );
-  }
+  const subtitle = state.status === 'success' ? `${state.data.length} orders` : undefined;
 
   return (
     <Screen>
-      <PlaceholderCard
-        icon="receipt-outline"
-        title="Sales Orders"
-        description={
-          status === 'error'
-            ? 'Could not load mock sales data.'
-            : `The list, filters, and order detail/creation screens are coming next.\n\n${summary}`
-        }
-      />
+      <ScreenHeader title="Sales Orders" subtitle={subtitle} />
+      {state.status === 'loading' && <LoadingState />}
+      {state.status === 'error' && (
+        <ErrorState message="We couldn't load your sales orders." onRetry={reload} />
+      )}
+      {state.status === 'success' && (
+        <FlatList
+          data={state.data}
+          keyExtractor={(order) => order.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <PlaceholderCard
+              icon="receipt-outline"
+              title="No sales orders yet"
+              description="Orders you create will show up here."
+            />
+          }
+          renderItem={({ item, index }) => (
+            <SaleOrderListItem
+              order={item}
+              isFirst={index === 0}
+              isLast={index === state.data.length - 1}
+              onPress={() => router.push({ pathname: '/sales/[id]', params: { id: item.id } })}
+            />
+          )}
+        />
+      )}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  listContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+  },
+});

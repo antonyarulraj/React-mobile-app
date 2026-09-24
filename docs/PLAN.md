@@ -12,11 +12,10 @@ For this phase, the app will run entirely on **mock/static data** — no backend
 or API integration. The data layer will be built behind a simple interface so
 a real API can be swapped in later without reworking the UI.
 
-Phase 1 (project scaffold, navigation shell, theme) and Phase 2 (Sales
-module mock data layer) are complete — see
-[Milestones](#8-milestones--delivery-plan). Sales screens are still visual
-placeholders; Phase 3 replaces them with real list/detail UI wired to the
-mock repository built in Phase 2.
+Phases 1–3 are complete — project scaffold, the Sales mock data layer, and
+the read-only Sales List + Sale Order Detail screens — see
+[Milestones](#8-milestones--delivery-plan). Next is Phase 4: creating and
+editing sale orders.
 
 ---
 
@@ -79,24 +78,28 @@ src/
 │   └── (tabs)/
 │       ├── _layout.tsx             # Bottom tab navigator (Dashboard, Sales, Customers, More)
 │       ├── index.tsx               # -> renders src/modules/dashboard
-│       ├── sales.tsx               # -> renders src/modules/sales (becomes a folder + stack once
-│       │                             #    order detail/create screens are added in Phase 3+)
+│       ├── sales/
+│       │   ├── _layout.tsx         # Stack (list -> detail), list kept underneath deep links
+│       │   ├── index.tsx           # -> SalesListScreen
+│       │   └── [id].tsx            # -> SaleOrderDetailScreen
 │       ├── customers.tsx           # -> renders src/modules/customers
 │       └── more.tsx                # -> renders src/modules/more
 ├── modules/
 │   └── sales/                    # Sales module (self-contained)
-│       ├── screens/               # SalesListScreen, SalesDetailScreen, SalesFormScreen
-│       ├── components/            # SalesCard, StatusBadge, SalesSummary, etc. (Phase 3+)
+│       ├── screens/               # SalesListScreen, SaleOrderDetailScreen (+ form in Phase 4)
+│       ├── components/            # StatusBadge, SaleOrderListItem
+│       ├── hooks/                 # useSaleOrders (orders joined with customers), useSaleOrder(id)
 │       ├── data/                   # mockCustomers.ts, mockProducts.ts, mockSalesOrders.ts,
 │       │                           #   salesRepository.ts (interface + mock implementation)
 │       ├── utils/                  # calculateTotals.ts
 │       ├── types.ts                # SaleOrder, SaleOrderItem, Customer, Product, SalesStatus
 │       └── index.ts                # public module API (types + mockSalesRepository)
 ├── shared/
-│   ├── components/                # Screen, PlaceholderCard, Buttons, Inputs, EmptyState, etc.
+│   ├── components/                # Screen, ScreenHeader, Avatar, PlaceholderCard,
+│   │                              #   LoadingState, ErrorState (with retry)
+│   ├── hooks/                     # useAsyncData (loading / error / success + reload)
 │   ├── theme/                       # colors, spacing, typography, navigationTheme
-│   └── utils/                        # delay.ts, id.ts (formatCurrency/formatDate added in Phase 3
-│                                      #   once screens actually render them)
+│   └── utils/                        # delay.ts, id.ts, format.ts (currency, date, initials)
 assets/
 app.json / package.json / tsconfig.json
 ```
@@ -177,17 +180,21 @@ Implemented in Phase 1 as an Expo Router bottom-tab group at `src/app/(tabs)/`:
 Root Stack (src/app/_layout.tsx)
 └── (tabs) — bottom tabs (src/app/(tabs)/_layout.tsx)
     ├── Dashboard   (index.tsx)      — placeholder, becomes Sales Dashboard
-    ├── Sales       (sales.tsx)      — wired to the mock data layer (Phase 2), still a
-    │                                   placeholder UI; becomes a stack in Phase 3:
-    │                                   list → order detail → create/edit form
+    ├── Sales       (sales/)         — Stack (Phase 3):
+    │   ├── index.tsx                  list of sale orders  (/sales)
+    │   └── [id].tsx                   order detail         (/sales/<order id>)
+    │                                   (+ new.tsx for the create/edit form in Phase 4)
     ├── Customers   (customers.tsx)  — placeholder, becomes list → detail
     └── More        (more.tsx)       — placeholder for settings/future modules
 ```
 
-When Sales/Customers grow beyond a single screen (Phase 3+), the leaf route
-file converts into a folder with its own `_layout.tsx` stack (e.g.
-`src/app/(tabs)/sales/_layout.tsx`, `index.tsx`, `[id].tsx`, `new.tsx`) — a
-standard Expo Router pattern, no restructuring of the tab group itself.
+Sales was converted from a single `sales.tsx` route into a `sales/` folder
+with its own stack in Phase 3 — the standard Expo Router pattern, with no
+change to the tab group itself. Customers will follow the same pattern in
+Phase 6. The sales stack sets `initialRouteName: 'index'` so a deep link
+straight to an order still has the list underneath for "back". Known
+cosmetic quirk: on web, going back from a deep-linked order leaves the
+order id as a harmless query param on the list URL (`/sales?id=…`).
 
 Future modules (Inventory, Purchases, Reports) get added as additional tabs
 or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding.
@@ -226,8 +233,8 @@ or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding
 | 0 | This plan (docs only) | ✅ Done |
 | 1 | Project scaffold: Expo + TypeScript + navigation shell + theme, no business logic | ✅ Done |
 | 2 | Sales module data layer: types, mock data, mock repository with async simulation | ✅ Done |
-| 3 | Sales List + Sale Order Detail screens (read-only, wired to mock data) | **Current phase** |
-| 4 | Sale Order Create/Edit form with line items & totals | Pending |
+| 3 | Sales List + Sale Order Detail screens (read-only, wired to mock data) | ✅ Done |
+| 4 | Sale Order Create/Edit form with line items & totals | **Current phase** |
 | 5 | Status transitions + basic Sales Dashboard stats | Pending |
 | 6 | Lightweight Customers screens to support Sales flow | Pending |
 | 7 | Polish: search/filter, empty/loading/error states, basic tests | Pending |
@@ -252,8 +259,10 @@ or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding
 
 1. ~~Scaffold the Expo + TypeScript project (Phase 1).~~ ✅ Done.
 2. ~~Implement the Sales module data layer and mock data (Phase 2).~~ ✅ Done.
-3. Build out Sales screens incrementally, starting with the read-only list
-   and detail views (Phase 3) — next up.
+3. ~~Read-only Sales List + Sale Order Detail screens (Phase 3).~~ ✅ Done.
+4. Sale Order create/edit form with line items and live totals (Phase 4) —
+   next up. When orders can change, the list should re-fetch on focus
+   (`useFocusEffect`) so it reflects new/edited orders after navigating back.
 
 ---
 
@@ -267,7 +276,8 @@ npm run typecheck     # tsc --noEmit
 npm run lint          # eslint .
 ```
 
-The app currently renders four themed tabs (Dashboard, Sales, Customers,
-More). Sales is wired to the Phase 2 mock data layer and shows live counts
-loaded from `mockSalesRepository`; the other three are still static
-placeholders. No real list/detail/form UI yet — that's Phase 3.
+The app has four themed tabs (Dashboard, Sales, Customers, More). Sales
+shows the list of 16 mock orders (`/sales`); tapping one opens its detail
+(`/sales/<id>`) with customer, line items, totals, and notes. Every screen
+handles loading, error (with retry), and not-found/empty states. Dashboard,
+Customers, and More are still static placeholders.

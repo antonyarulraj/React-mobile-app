@@ -5,7 +5,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    ignores: ['dist/*', '.expo/*'],
   },
   {
     // eslint-import-resolver-typescript@3.x (pinned by eslint-config-expo) can't

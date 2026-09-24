@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
@@ -10,9 +10,10 @@ type Props = {
   icon: ComponentProps<typeof Ionicons>['name'];
   title: string;
   description: string;
+  children?: ReactNode;
 };
 
-export function PlaceholderCard({ icon, title, description }: Props) {
+export function PlaceholderCard({ icon, title, description, children }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.iconWrap}>
@@ -20,6 +21,7 @@ export function PlaceholderCard({ icon, title, description }: Props) {
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
+      {children}
     </View>
   );
 }
