@@ -6,13 +6,15 @@ import { ErrorState } from '@/shared/components/ErrorState';
 import { LoadingState } from '@/shared/components/LoadingState';
 import { PlaceholderCard } from '@/shared/components/PlaceholderCard';
 import { Screen } from '@/shared/components/Screen';
-import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { HeaderIconButton, ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, fontSizes, fontWeights, radii, spacing } from '@/shared/theme';
 import { formatCurrency, formatDate } from '@/shared/utils/format';
 
+import { OrderTotals } from '../components/OrderTotals';
 import { StatusBadge } from '../components/StatusBadge';
 import { useSaleOrder } from '../hooks/useSaleOrder';
 import type { SaleOrderWithCustomer } from '../hooks/useSaleOrders';
+import { isOrderEditable } from '../utils/orderRules';
 
 function goBack() {
   if (router.canGoBack()) {
@@ -30,7 +32,20 @@ export default function SaleOrderDetailScreen() {
     const order = state.data;
     return (
       <Screen>
-        <ScreenHeader title={order.orderNumber} subtitle={formatDate(order.date)} onBack={goBack} />
+        <ScreenHeader
+          title={order.orderNumber}
+          subtitle={formatDate(order.date)}
+          onBack={goBack}
+          right={
+            isOrderEditable(order.status) ? (
+              <HeaderIconButton
+                icon="create-outline"
+                accessibilityLabel={`Edit ${order.orderNumber}`}
+                onPress={() => router.push({ pathname: '/sales/[id]/edit', params: { id: order.id } })}
+              />
+            ) : null
+          }
+        />
         <OrderDetails order={order} />
       </Screen>
     );
@@ -92,13 +107,7 @@ function OrderDetails({ order }: { order: SaleOrderWithCustomer }) {
         ))}
       </View>
 
-      <View style={styles.card}>
-        <TotalRow label="Subtotal" value={order.subtotal} />
-        <TotalRow label="Tax" value={order.tax} />
-        {order.discount > 0 ? <TotalRow label="Discount" value={-order.discount} /> : null}
-        <View style={styles.totalDivider} />
-        <TotalRow label="Total" value={order.total} emphasized />
-      </View>
+      <OrderTotals totals={order} />
 
       {order.notes ? (
         <View style={styles.card}>
@@ -107,17 +116,6 @@ function OrderDetails({ order }: { order: SaleOrderWithCustomer }) {
         </View>
       ) : null}
     </ScrollView>
-  );
-}
-
-function TotalRow({ label, value, emphasized }: { label: string; value: number; emphasized?: boolean }) {
-  return (
-    <View style={styles.totalRow}>
-      <Text style={emphasized ? styles.totalLabelEmphasized : styles.totalLabel}>{label}</Text>
-      <Text style={emphasized ? styles.totalValueEmphasized : styles.totalLabel}>
-        {formatCurrency(value)}
-      </Text>
-    </View>
   );
 }
 
@@ -186,30 +184,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontWeight: fontWeights.bold,
     color: colors.textPrimary,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-  },
-  totalLabel: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-  },
-  totalLabelEmphasized: {
-    fontSize: fontSizes.lg,
-    fontWeight: fontWeights.heavy,
-    color: colors.textPrimary,
-  },
-  totalValueEmphasized: {
-    fontSize: fontSizes.lg,
-    fontWeight: fontWeights.heavy,
-    color: colors.textPrimary,
-  },
-  totalDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginVertical: spacing.sm,
   },
   notes: {
     fontSize: fontSizes.md,

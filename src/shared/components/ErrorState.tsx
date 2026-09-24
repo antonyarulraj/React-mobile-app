@@ -1,8 +1,7 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { colors } from '../theme/colors';
-import { radii, spacing } from '../theme/spacing';
-import { fontSizes, fontWeights } from '../theme/typography';
+import { spacing } from '../theme/spacing';
+import { Button } from './Button';
 import { PlaceholderCard } from './PlaceholderCard';
 
 type Props = {
@@ -13,13 +12,7 @@ type Props = {
 export function ErrorState({ message, onRetry }: Props) {
   return (
     <PlaceholderCard icon="cloud-offline-outline" title="Something went wrong" description={message}>
-      <Pressable
-        onPress={onRetry}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-      >
-        <Text style={styles.buttonLabel}>Try again</Text>
-      </Pressable>
+      <Button label="Try again" onPress={onRetry} style={styles.button} />
     </PlaceholderCard>
   );
 }
@@ -27,17 +20,5 @@ export function ErrorState({ message, onRetry }: Props) {
 const styles = StyleSheet.create({
   button: {
     marginTop: spacing.xl,
-    backgroundColor: colors.primary,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  buttonLabel: {
-    color: colors.surface,
-    fontSize: fontSizes.base,
-    fontWeight: fontWeights.bold,
   },
 });

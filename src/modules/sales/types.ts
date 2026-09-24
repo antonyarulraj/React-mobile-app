@@ -38,10 +38,13 @@ export interface SaleOrder {
   notes?: string;
 }
 
-export interface NewSaleOrderInput {
+export type OrderLineInput = Pick<SaleOrderItem, 'productId' | 'quantity'>;
+
+/** Used for both creating and editing. On edit, omitted `taxRate`/`discount` keep the order's existing values. */
+export interface SaleOrderInput {
   customerId: string;
   date: string;
-  items: Pick<SaleOrderItem, 'productId' | 'quantity'>[];
+  items: OrderLineInput[];
   taxRate?: number;
   discount?: number;
   notes?: string;

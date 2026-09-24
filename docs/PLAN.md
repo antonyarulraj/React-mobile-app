@@ -12,10 +12,10 @@ For this phase, the app will run entirely on **mock/static data** — no backend
 or API integration. The data layer will be built behind a simple interface so
 a real API can be swapped in later without reworking the UI.
 
-Phases 1–3 are complete — project scaffold, the Sales mock data layer, and
-the read-only Sales List + Sale Order Detail screens — see
-[Milestones](#8-milestones--delivery-plan). Next is Phase 4: creating and
-editing sale orders.
+Phases 1–4 are complete — project scaffold, the Sales mock data layer, the
+Sales List + Sale Order Detail screens, and creating/editing sale orders —
+see [Milestones](#8-milestones--delivery-plan). Next is Phase 5: status
+transitions and the Sales Dashboard.
 
 ---
 
@@ -49,7 +49,7 @@ editing sale orders.
 | Navigation           | Expo Router (file-based routing, built on React Navigation) |
 | State management     | React Context + hooks for v1 (upgrade path: Zustand/Redux Toolkit if complexity grows) |
 | UI components        | React Native Paper (Material Design) or NativeBase — pick one for consistent look |
-| Forms                | React Hook Form (+ basic yup/zod validation)        |
+| Forms                | Plain React state + a pure draft/validation module (Phase 4) — React Hook Form not needed for one form; revisit if forms multiply |
 | Mock data layer      | Local TS modules simulating a repository/service API (with artificial delay to mimic network) |
 | Lists/perf           | FlatList / FlashList for large sales lists           |
 | Icons                | @expo/vector-icons                                  |
@@ -79,27 +79,33 @@ src/
 │       ├── _layout.tsx             # Bottom tab navigator (Dashboard, Sales, Customers, More)
 │       ├── index.tsx               # -> renders src/modules/dashboard
 │       ├── sales/
-│       │   ├── _layout.tsx         # Stack (list -> detail), list kept underneath deep links
-│       │   ├── index.tsx           # -> SalesListScreen
-│       │   └── [id].tsx            # -> SaleOrderDetailScreen
+│       │   ├── _layout.tsx         # Stack, list kept underneath deep links
+│       │   ├── index.tsx           # -> SalesListScreen            (/sales)
+│       │   ├── new.tsx             # -> SaleOrderFormScreen        (/sales/new)
+│       │   └── [id]/
+│       │       ├── index.tsx       # -> SaleOrderDetailScreen      (/sales/<id>)
+│       │       └── edit.tsx        # -> SaleOrderFormScreen        (/sales/<id>/edit)
 │       ├── customers.tsx           # -> renders src/modules/customers
 │       └── more.tsx                # -> renders src/modules/more
 ├── modules/
 │   └── sales/                    # Sales module (self-contained)
-│       ├── screens/               # SalesListScreen, SaleOrderDetailScreen (+ form in Phase 4)
-│       ├── components/            # StatusBadge, SaleOrderListItem
-│       ├── hooks/                 # useSaleOrders (orders joined with customers), useSaleOrder(id)
+│       ├── screens/               # SalesListScreen, SaleOrderDetailScreen, SaleOrderFormScreen
+│       ├── components/            # StatusBadge, SaleOrderListItem, OrderTotals, LineItemEditor
+│       ├── hooks/                 # useSaleOrders, useSaleOrder(id), useOrderFormData(id?)
 │       ├── data/                   # mockCustomers.ts, mockProducts.ts, mockSalesOrders.ts,
 │       │                           #   salesRepository.ts (interface + mock implementation)
-│       ├── utils/                  # calculateTotals.ts
+│       ├── utils/                  # orderMath.ts (line items + totals), orderRules.ts (what's
+│       │                           #   editable), orderDraft.ts (form draft + validation)
 │       ├── types.ts                # SaleOrder, SaleOrderItem, Customer, Product, SalesStatus
 │       └── index.ts                # public module API (types + mockSalesRepository)
 ├── shared/
-│   ├── components/                # Screen, ScreenHeader, Avatar, PlaceholderCard,
-│   │                              #   LoadingState, ErrorState (with retry)
+│   ├── components/                # Screen, ScreenHeader (+ HeaderIconButton), Avatar, Button,
+│   │                              #   PlaceholderCard, LoadingState, ErrorState, FormSection,
+│   │                              #   SelectField, PickerModal (bottom-sheet list picker)
 │   ├── hooks/                     # useAsyncData (loading / error / success + reload)
 │   ├── theme/                       # colors, spacing, typography, navigationTheme
-│   └── utils/                        # delay.ts, id.ts, format.ts (currency, date, initials)
+│   └── utils/                        # delay.ts, id.ts, format.ts (currency, date, initials),
+│                                      #   date.ts (today, strict YYYY-MM-DD validation)
 assets/
 app.json / package.json / tsconfig.json
 ```
@@ -158,6 +164,26 @@ screens/hooks stay unchanged.
 - Empty/loading/error states (simulated, since data is mocked) so the UI is
   ready for real async API behavior later.
 
+**Create/edit rules (Phase 4):**
+- Only **Draft** and **Pending** orders can be edited. The detail screen only
+  shows the edit button for them, the edit URL shows a "can't be edited"
+  state for anything else, and `updateOrder` in the repository rejects it
+  too, so the rule holds even once a real API replaces the UI checks.
+- New orders start as **Draft**.
+- Adding a product that's already on the order bumps its quantity instead of
+  adding a duplicate line. Quantities are whole numbers from 1 to 9999.
+- The form doesn't edit tax or discount. Edits keep the order's existing
+  tax rate and discount, and a discount is capped so a shrunken order's
+  total never goes negative.
+- The list and detail screens re-fetch when you return to them, so saved
+  changes show up right away.
+
+**Known limitations (to revisit in Phase 7 polish):**
+- The order date is a `YYYY-MM-DD` text field (validated, with a
+  "24 Sep 2026" preview) rather than a native date picker, because it has to
+  work the same on iOS, Android, and web.
+- Leaving the form with unsaved changes doesn't ask for confirmation.
+
 ### 5.4 Mockups
 
 Visual mockups of the screens above are available in
@@ -181,9 +207,10 @@ Root Stack (src/app/_layout.tsx)
 └── (tabs) — bottom tabs (src/app/(tabs)/_layout.tsx)
     ├── Dashboard   (index.tsx)      — placeholder, becomes Sales Dashboard
     ├── Sales       (sales/)         — Stack (Phase 3):
-    │   ├── index.tsx                  list of sale orders  (/sales)
-    │   └── [id].tsx                   order detail         (/sales/<order id>)
-    │                                   (+ new.tsx for the create/edit form in Phase 4)
+    │   ├── index.tsx                  list of sale orders  (/sales)       "+" button → new
+    │   ├── new.tsx                    create form          (/sales/new)
+    │   ├── [id]/index.tsx             order detail         (/sales/<id>)  edit button → edit
+    │   └── [id]/edit.tsx              edit form            (/sales/<id>/edit)
     ├── Customers   (customers.tsx)  — placeholder, becomes list → detail
     └── More        (more.tsx)       — placeholder for settings/future modules
 ```
@@ -234,8 +261,8 @@ or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding
 | 1 | Project scaffold: Expo + TypeScript + navigation shell + theme, no business logic | ✅ Done |
 | 2 | Sales module data layer: types, mock data, mock repository with async simulation | ✅ Done |
 | 3 | Sales List + Sale Order Detail screens (read-only, wired to mock data) | ✅ Done |
-| 4 | Sale Order Create/Edit form with line items & totals | **Current phase** |
-| 5 | Status transitions + basic Sales Dashboard stats | Pending |
+| 4 | Sale Order Create/Edit form with line items & totals | ✅ Done |
+| 5 | Status transitions + basic Sales Dashboard stats | **Current phase** |
 | 6 | Lightweight Customers screens to support Sales flow | Pending |
 | 7 | Polish: search/filter, empty/loading/error states, basic tests | Pending |
 | 8 (future) | Replace mock repository with real API integration | Pending |
@@ -260,9 +287,11 @@ or nested inside the "More" menu as the app grows, avoiding tab-bar overcrowding
 1. ~~Scaffold the Expo + TypeScript project (Phase 1).~~ ✅ Done.
 2. ~~Implement the Sales module data layer and mock data (Phase 2).~~ ✅ Done.
 3. ~~Read-only Sales List + Sale Order Detail screens (Phase 3).~~ ✅ Done.
-4. Sale Order create/edit form with line items and live totals (Phase 4) —
-   next up. When orders can change, the list should re-fetch on focus
-   (`useFocusEffect`) so it reflects new/edited orders after navigating back.
+4. ~~Sale Order create/edit form with line items and live totals (Phase 4).~~ ✅ Done.
+5. Status transitions (Draft → Pending → Confirmed → Shipped → Completed,
+   Cancel from most states) and Sales Dashboard stats (Phase 5) — next up.
+   `updateOrderStatus` already exists in the repository; the detail screen
+   needs the action buttons, and the rules belong in `utils/orderRules.ts`.
 
 ---
 
@@ -278,6 +307,9 @@ npm run lint          # eslint .
 
 The app has four themed tabs (Dashboard, Sales, Customers, More). Sales
 shows the list of 16 mock orders (`/sales`); tapping one opens its detail
-(`/sales/<id>`) with customer, line items, totals, and notes. Every screen
-handles loading, error (with retry), and not-found/empty states. Dashboard,
-Customers, and More are still static placeholders.
+(`/sales/<id>`) with customer, line items, totals, and notes. The "+"
+button creates an order (`/sales/new`) and the pencil on a draft/pending
+order edits it (`/sales/<id>/edit`). New and edited orders live in memory
+only, so they reset when the app reloads. Every screen handles loading,
+error (with retry), and not-found/empty states. Dashboard, Customers, and
+More are still static placeholders.

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
@@ -9,10 +10,12 @@ type Props = {
   title: string;
   subtitle?: string;
   onBack?: () => void;
+  /** Action shown opposite the back button (compact header only). Should be ~36pt wide to keep the title centered. */
+  right?: ReactNode;
 };
 
 /** Large left-aligned title for tab roots; compact centered title with a back button when `onBack` is given. */
-export function ScreenHeader({ title, subtitle, onBack }: Props) {
+export function ScreenHeader({ title, subtitle, onBack, right }: Props) {
   if (!onBack) {
     return (
       <View style={styles.container}>
@@ -39,8 +42,28 @@ export function ScreenHeader({ title, subtitle, onBack }: Props) {
         </Text>
         {subtitle ? <Text style={styles.compactSubtitle}>{subtitle}</Text> : null}
       </View>
-      <View style={styles.backButtonSpacer} />
+      <View style={styles.backButtonSpacer}>{right}</View>
     </View>
+  );
+}
+
+type HeaderIconButtonProps = {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  accessibilityLabel: string;
+  onPress: () => void;
+};
+
+export function HeaderIconButton({ icon, accessibilityLabel, onPress }: HeaderIconButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={8}
+      style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+    >
+      <Ionicons name={icon} size={18} color={colors.primary} />
+    </Pressable>
   );
 }
 

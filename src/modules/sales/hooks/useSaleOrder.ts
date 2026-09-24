@@ -14,5 +14,5 @@ export function useSaleOrder(id: string) {
     return { ...order, customer };
   }, [id]);
 
-  return useAsyncData(load);
+  return useAsyncData(load, { refetchOnFocus: true });
 }

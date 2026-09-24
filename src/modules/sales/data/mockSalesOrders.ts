@@ -1,27 +1,6 @@
-import type { SalesStatus, SaleOrder, SaleOrderItem } from '../types';
-import { calculateOrderTotals } from '../utils/calculateTotals';
+import type { OrderLineInput, SalesStatus, SaleOrder } from '../types';
+import { buildOrderItems, calculateOrderTotals } from '../utils/orderMath';
 import { mockProducts } from './mockProducts';
-
-function productById(id: string) {
-  const product = mockProducts.find((p) => p.id === id);
-  if (!product) {
-    throw new Error(`Unknown mock product id: ${id}`);
-  }
-  return product;
-}
-
-function buildItems(lines: { productId: string; quantity: number }[]): SaleOrderItem[] {
-  return lines.map(({ productId, quantity }) => {
-    const product = productById(productId);
-    return {
-      productId: product.id,
-      productName: product.name,
-      quantity,
-      unitPrice: product.unitPrice,
-      lineTotal: product.unitPrice * quantity,
-    };
-  });
-}
 
 interface OrderSeed {
   id: string;
@@ -29,7 +8,7 @@ interface OrderSeed {
   customerId: string;
   date: string;
   status: SalesStatus;
-  lines: { productId: string; quantity: number }[];
+  lines: OrderLineInput[];
   notes?: string;
   discount?: number;
 }
@@ -193,7 +172,7 @@ const orderSeeds: OrderSeed[] = [
 ];
 
 export const mockSalesOrders: SaleOrder[] = orderSeeds.map((seed) => {
-  const items = buildItems(seed.lines);
+  const items = buildOrderItems(seed.lines, mockProducts);
   const totals = calculateOrderTotals(items, { discount: seed.discount ?? 0 });
   return {
     id: seed.id,

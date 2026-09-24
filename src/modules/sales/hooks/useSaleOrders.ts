@@ -17,5 +17,5 @@ async function loadOrdersWithCustomers(): Promise<SaleOrderWithCustomer[]> {
 }
 
 export function useSaleOrders() {
-  return useAsyncData(loadOrdersWithCustomers);
+  return useAsyncData(loadOrdersWithCustomers, { refetchOnFocus: true });
 }
